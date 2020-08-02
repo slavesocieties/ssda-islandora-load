@@ -1,0 +1,174 @@
+# Uninstall this config when the feature is uninstalled
+dependencies:
+  enforced:
+    module:
+      - migrate_islandora_csv
+      - migration_lookup
+
+id: volume
+label: Import Volume Nodes from CSV 
+migration_group: migrate_islandora_csv
+
+source:
+  plugin: csv
+  path: modules/contrib/migrate_islandora_csv/data/ssda_volume.csv
+
+  # 1 means you have a header row, 0 means you don't
+  header_row_count: 1
+
+  # Each migration needs a unique key per row in the csv.  Here we're using the file path.
+  keys:
+    - volume_key
+
+  # You can't enter string literals into a process plugin, but you can give it a constant as a 'source'.
+  constants:
+    # We're tagging these nodes as Paged Content
+    model: Paged Content
+
+    # Everything gets created as admin
+    uid: 1
+
+    # viewing hint is open seadragon
+    osd: Open Seadragon
+
+# Set fields using values from the CSV
+process:
+  title: title
+  uid: constants/uid
+
+  field_creator:
+    plugin: skip_on_empty
+    source: creator
+    method: process
+
+  field_member_of:
+    -
+      plugin: skip_on_empty
+      source: collection_key
+      method: process
+    -
+      plugin: migration_lookup
+      migration: collection
+
+  # Split up our pipe-delimited string of
+  # subjects, and generate terms for each.
+  field_subject:
+    -
+      plugin: skip_on_empty
+      source: subject 
+      method: process
+    -
+      plugin: explode
+      delimiter: '|'
+    -
+      plugin: entity_generate
+      entity_type: taxonomy_term
+      value_key: name
+      bundle_key: vid
+      bundle: subject
+
+  field_geographic_subject:
+    -
+      plugin: skip_on_empty
+      source: geographic_subject
+      method: process
+    -
+      plugin: explode
+      delimiter: '/'
+    -
+      plugin: entity_generate
+      entity_type: taxonomy_term
+      value_key: name
+      bundle_key: vid
+      bundle: subject
+      
+  field_source: #this doesn't work
+    plugin: skip_on_empty
+    source: source
+    method: process      
+
+  field_format: #this doesn't work
+    plugin: skip_on_empty
+    source: format
+    method: process
+    
+  field_contributor:
+    -
+      source: contributor
+      plugin: skip_on_empty
+      method: process
+    -
+      plugin: explode
+      delimiter: '|'
+      #-
+      #plugin: str_to_assoc
+      #key: 'name'
+
+
+  field_identifier:
+    plugin: skip_on_empty
+    source: identifier
+    method: process
+    #identifier: identifier
+
+  field_edtf_date:
+    plugin: skip_on_empty
+    source: date
+    method: process
+    #date: date  #no-op
+  #  type: type #this broke the whole site
+
+  field_language:
+    -
+      plugin: skip_on_empty
+      source: language
+      method: process
+    -
+      plugin: explode
+      delimiter: '|'
+    -
+      plugin: entity_generate
+      entity_type: taxonomy_term
+      value_key: name
+      bundle_key: vid
+      bundle: language 
+      #language: language #no-op
+
+  field_rights:
+    plugin: skip_on_empty
+    source: rights
+    method: process
+
+  field_description: description
+
+  field_model:
+    plugin: entity_lookup
+    source: constants/model
+    entity_type: taxonomy_term
+    value_key: name 
+    bundle_key: vid
+    bundle: islandora_models 
+
+  field_display_hints:
+    -
+      plugin: entity_lookup
+      source: constants/osd
+      entity_type: taxonomy_term
+      value_key: name
+      bundle_key: vid
+      bundle: islandora_display
+
+  'field_coordinates/lat':
+    plugin: skip_on_empty
+    source: coordinates_lat
+    method: process
+
+  'field_coordinates/lng':
+    plugin: skip_on_empty
+    source: coordinates_lng
+    method: process
+
+# We're making nodes
+destination:
+  plugin: 'entity:node'
+  default_bundle: islandora_object

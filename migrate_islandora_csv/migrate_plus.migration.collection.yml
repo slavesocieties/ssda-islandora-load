@@ -1,0 +1,57 @@
+# Uninstall this config when the feature is uninstalled
+dependencies:
+  enforced:
+    module:
+      - migrate_islandora_csv
+      - migration_lookup
+
+id: collection
+label: Import Collection Nodes from CSV for SSDA
+migration_group: migrate_islandora_csv
+
+source:
+  plugin: csv
+  path: modules/contrib/migrate_islandora_csv/data/ssda_collection.csv
+
+  # 1 means you have a header row, 0 means you don't
+  header_row_count: 1
+
+  # Each migration needs a unique key per row in the csv.  Here we're using the file path.
+  keys:
+    - collection_key
+
+  # You can't enter string literals into a process plugin, but you can give it a constant as a 'source'.
+  constants:
+
+    # Everything gets created as admin
+    uid: 1
+    model: Collection
+
+# Set fields using values from the CSV
+process:
+  title: title
+  uid: constants/uid
+
+  field_model:
+    plugin: entity_lookup
+    source: constants/model
+    entity_type: taxonomy_term
+    value_key: name 
+    bundle_key: vid
+    bundle: islandora_models 
+
+  field_member_of:
+    -
+      plugin: skip_on_empty
+      source: parent_collection_key
+      method: process
+    -
+      plugin: migration_lookup
+      source: parent_collection_key
+      migration: collection
+      no_stub: true
+
+# We're making nodes
+destination:
+  plugin: 'entity:node'
+  default_bundle: islandora_object
